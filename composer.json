@@ -22,7 +22,8 @@
         "illuminate/container": "^11.0",
         "illuminate/contracts": "^11.0",
         "illuminate/macroable": "^11.0",
-        "illuminate/support": "^11.0"
+        "illuminate/support": "^11.0",
+        "psr/container": "^2.0@dev"
     },
     "autoload": {
         "psr-4": {
@@ -46,5 +47,8 @@
     "config": {
         "sort-packages": true
     },
-    "minimum-stability": "dev"
+    "minimum-stability": "dev",
+    "require-dev": {
+        "swoole/ide-helper": "dev-master"
+    }
 }

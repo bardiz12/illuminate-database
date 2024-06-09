@@ -2,33 +2,34 @@
 
 namespace Illuminate\Database\Connectors;
 
-use Illuminate\Contracts\Container\Container;
 use Illuminate\Database\Connection;
 use Illuminate\Database\MariaDbConnection;
 use Illuminate\Database\MySqlConnection;
 use Illuminate\Database\PostgresConnection;
 use Illuminate\Database\SQLiteConnection;
 use Illuminate\Database\SqlServerConnection;
+use Illuminate\Database\Swoole\PDOPoolManager;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
 use PDOException;
+use Psr\Container\ContainerInterface;
 
 class ConnectionFactory
 {
     /**
      * The IoC container instance.
      *
-     * @var \Illuminate\Contracts\Container\Container
+     * @var ContainerInterface
      */
     protected $container;
 
     /**
      * Create a new connection factory instance.
      *
-     * @param  \Illuminate\Contracts\Container\Container  $container
+     * @param  ContainerInterface  $container
      * @return void
      */
-    public function __construct(Container $container)
+    public function __construct(ContainerInterface $container)
     {
         $this->container = $container;
     }
@@ -236,18 +237,22 @@ class ConnectionFactory
             throw new InvalidArgumentException('A driver must be specified.');
         }
 
-        if ($this->container->bound($key = "db.connector.{$config['driver']}")) {
-            return $this->container->make($key);
-        }
+        // \Illuminate\Database\Connectors\ConnectionFactory::class;
+        // if ($this->container->has($key = "db.connector.{$config['driver']}")) {
+        //     return $this->container->make($key);
+        // }
 
-        return match ($config['driver']) {
-            'mysql' => new MySqlConnector,
+        
+        $connector = match ($config['driver']) {
+            'mysql' => new SwooleMySqlConnector,
             'mariadb' => new MariaDbConnector,
             'pgsql' => new PostgresConnector,
             'sqlite' => new SQLiteConnector,
             'sqlsrv' => new SqlServerConnector,
             default => throw new InvalidArgumentException("Unsupported driver [{$config['driver']}]."),
         };
+
+        return $connector;
     }
 
     /**
@@ -264,16 +269,20 @@ class ConnectionFactory
      */
     protected function createConnection($driver, $connection, $database, $prefix = '', array $config = [])
     {
-        if ($resolver = Connection::getResolver($driver)) {
-            return $resolver($connection, $database, $prefix, $config);
-        }
+        // if ($resolver = Connection::getResolver($driver)) {
+        //     return $resolver($connection, $database, $prefix, $config);
+        // }
+        
+        // $pdo
+
+        $pdoPoolManager = $this->container->get(PDOPoolManager::class);
 
         return match ($driver) {
-            'mysql' => new MySqlConnection($connection, $database, $prefix, $config),
-            'mariadb' => new MariaDbConnection($connection, $database, $prefix, $config),
-            'pgsql' => new PostgresConnection($connection, $database, $prefix, $config),
-            'sqlite' => new SQLiteConnection($connection, $database, $prefix, $config),
-            'sqlsrv' => new SqlServerConnection($connection, $database, $prefix, $config),
+            'mysql' => new MySqlConnection($pdoPoolManager, $database, $prefix, $config),
+            'mariadb' => new MariaDbConnection($pdoPoolManager, $database, $prefix, $config),
+            'pgsql' => new PostgresConnection($pdoPoolManager, $database, $prefix, $config),
+            'sqlite' => new SQLiteConnection($pdoPoolManager, $database, $prefix, $config),
+            'sqlsrv' => new SqlServerConnection($pdoPoolManager, $database, $prefix, $config),
             default => throw new InvalidArgumentException("Unsupported driver [{$driver}]."),
         };
     }

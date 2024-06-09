@@ -55,6 +55,7 @@ class ConnectionResolver implements ConnectionResolverInterface
      */
     public function addConnection($name, ConnectionInterface $connection)
     {
+        throw new \Exception("Let it be " . self::class);
         $this->connections[$name] = $connection;
     }
 

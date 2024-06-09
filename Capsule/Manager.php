@@ -2,13 +2,14 @@
 
 namespace Illuminate\Database\Capsule;
 
-use Illuminate\Container\Container;
-use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\Connectors\ConnectionFactory;
-use Illuminate\Database\DatabaseManager;
-use Illuminate\Database\Eloquent\Model as Eloquent;
-use Illuminate\Support\Traits\CapsuleManagerTrait;
 use PDO;
+use Illuminate\Container\Container;
+use Illuminate\Contracts\Config\Repository;
+use Psr\Container\ContainerInterface;
+use Illuminate\Database\DatabaseManager;
+use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Database\Eloquent\Model as Eloquent;
+use Illuminate\Database\Connectors\ConnectionFactory;
 
 class Manager
 {
@@ -21,15 +22,16 @@ class Manager
      */
     protected $manager;
 
+    protected Repository $config;
     /**
      * Create a new database capsule manager.
      *
-     * @param  \Illuminate\Container\Container|null  $container
+     * @param  ContainerInterface  $container
      * @return void
      */
-    public function __construct(?Container $container = null)
+    public function __construct(?ContainerInterface $container = null)
     {
-        $this->setupContainer($container ?: new Container);
+        $this->setupContainer($container);
 
         // Once we have the container setup, we will setup the default configuration
         // options in the container "config" binding. This will make the database
@@ -46,9 +48,8 @@ class Manager
      */
     protected function setupDefaultConfiguration()
     {
-        $this->container['config']['database.fetch'] = PDO::FETCH_OBJ;
-
-        $this->container['config']['database.default'] = 'default';
+        $this->config->set("database.fetch", PDO::FETCH_OBJ);
+        $this->config->set("database.default", 'default');
     }
 
     /**
@@ -118,7 +119,8 @@ class Manager
      */
     public function addConnection(array $config, $name = 'default')
     {
-        $connections = $this->container['config']['database.connections'];
+        throw new \Exception("Let it be");
+        $connections = $this->config->get("database.connections");
 
         $connections[$name] = $config;
 
@@ -172,8 +174,8 @@ class Manager
      */
     public function getEventDispatcher()
     {
-        if ($this->container->bound('events')) {
-            return $this->container['events'];
+        if ($this->container->has('events')) {
+            return $this->container->get('events');
         }
     }
 

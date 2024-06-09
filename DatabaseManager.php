@@ -2,15 +2,17 @@
 
 namespace Illuminate\Database;
 
-use Illuminate\Database\Connectors\ConnectionFactory;
-use Illuminate\Database\Events\ConnectionEstablished;
-use Illuminate\Support\Arr;
-use Illuminate\Support\ConfigurationUrlParser;
-use Illuminate\Support\Str;
-use Illuminate\Support\Traits\Macroable;
-use InvalidArgumentException;
 use PDO;
 use RuntimeException;
+use Illuminate\Support\Arr;
+use Illuminate\Support\Str;
+use InvalidArgumentException;
+use Psr\Container\ContainerInterface;
+use Illuminate\Support\Traits\Macroable;
+use Illuminate\Contracts\Config\Repository;
+use Illuminate\Support\ConfigurationUrlParser;
+use Illuminate\Database\Connectors\ConnectionFactory;
+use Illuminate\Database\Events\ConnectionEstablished;
 
 /**
  * @mixin \Illuminate\Database\Connection
@@ -24,9 +26,11 @@ class DatabaseManager implements ConnectionResolverInterface
     /**
      * The application instance.
      *
-     * @var \Illuminate\Contracts\Foundation\Application
+     * @var ContainerInterface
      */
     protected $app;
+
+    protected Repository $config;
 
     /**
      * The database connection factory instance.
@@ -59,18 +63,34 @@ class DatabaseManager implements ConnectionResolverInterface
     /**
      * Create a new database manager instance.
      *
-     * @param  \Illuminate\Contracts\Foundation\Application  $app
+     * @param  ContainerInterface  $app
      * @param  \Illuminate\Database\Connectors\ConnectionFactory  $factory
      * @return void
      */
-    public function __construct($app, ConnectionFactory $factory)
+    public function __construct(ContainerInterface $app, ConnectionFactory $factory)
     {
         $this->app = $app;
         $this->factory = $factory;
+        $this->config = $app->get(Repository::class);
 
         $this->reconnector = function ($connection) {
             $this->reconnect($connection->getNameWithReadWriteType());
         };
+
+        $this->loadAllConnections();
+    }
+
+    protected function loadAllConnections()
+    {
+        $config = $this->app->get(Repository::class);
+
+        foreach ($config->get("database.connections") as $name => $config) {
+            [$database, $type] = $this->parseConnectionName($name);
+            $this->connections[$name] = $this->configure(
+                $this->makeConnection($database),
+                $type
+            );
+        }
     }
 
     /**
@@ -88,9 +108,10 @@ class DatabaseManager implements ConnectionResolverInterface
         // If we haven't created this connection, we'll create it based on the config
         // provided in the application. Once we've created the connections we will
         // set the "fetch mode" for PDO which determines the query return types.
-        if (! isset($this->connections[$name])) {
+        if (!isset($this->connections[$name])) {
             $this->connections[$name] = $this->configure(
-                $this->makeConnection($database), $type
+                $this->makeConnection($database),
+                $type
             );
 
             $this->dispatchConnectionEstablishedEvent($this->connections[$name]);
@@ -118,7 +139,8 @@ class DatabaseManager implements ConnectionResolverInterface
         }
 
         $connection = $this->configure(
-            $this->factory->make($config, $name), null
+            $this->factory->make($config, $name),
+            null
         );
 
         $this->dispatchConnectionEstablishedEvent($connection);
@@ -137,7 +159,7 @@ class DatabaseManager implements ConnectionResolverInterface
         $name = $name ?: $this->getDefaultConnection();
 
         return Str::endsWith($name, ['::read', '::write'])
-                            ? explode('::', $name, 2) : [$name, null];
+            ? explode('::', $name, 2) : [$name, null];
     }
 
     /**
@@ -163,7 +185,7 @@ class DatabaseManager implements ConnectionResolverInterface
         if (isset($this->extensions[$driver = $config['driver']])) {
             return call_user_func($this->extensions[$driver], $config, $name);
         }
-
+        // var_dump($this->factory::class);
         return $this->factory->make($config, $name);
     }
 
@@ -182,14 +204,14 @@ class DatabaseManager implements ConnectionResolverInterface
         // To get the database connection configuration, we will just pull each of the
         // connection configurations and get the configurations for the given name.
         // If the configuration doesn't exist, we'll throw an exception and bail.
-        $connections = $this->app['config']['database.connections'];
+        $connections = $this->config->get("database.connections");
 
         if (is_null($config = Arr::get($connections, $name))) {
             throw new InvalidArgumentException("Database connection [{$name}] not configured.");
         }
 
         return (new ConfigurationUrlParser)
-                    ->parseConfiguration($config);
+            ->parseConfiguration($config);
     }
 
     /**
@@ -206,12 +228,12 @@ class DatabaseManager implements ConnectionResolverInterface
         // First we'll set the fetch mode and a few other dependencies of the database
         // connection. This method basically just configures and prepares it to get
         // used by the application. Once we're finished we'll return it back out.
-        if ($this->app->bound('events')) {
-            $connection->setEventDispatcher($this->app['events']);
+        if ($this->app->has('events')) {
+            $connection->setEventDispatcher($this->app->get("events"));
         }
 
-        if ($this->app->bound('db.transactions')) {
-            $connection->setTransactionManager($this->app['db.transactions']);
+        if ($this->app->has('db.transactions')) {
+            $connection->setTransactionManager($this->app->get("db.transactions"));
         }
 
         // Here we'll set a reconnector callback. This reconnector can be any callable
@@ -230,11 +252,11 @@ class DatabaseManager implements ConnectionResolverInterface
      */
     protected function dispatchConnectionEstablishedEvent(Connection $connection)
     {
-        if (! $this->app->bound('events')) {
+        if (!$this->app->has('events')) {
             return;
         }
 
-        $this->app['events']->dispatch(
+        $this->app->get("events")->dispatch(
             new ConnectionEstablished($connection)
         );
     }
@@ -295,7 +317,7 @@ class DatabaseManager implements ConnectionResolverInterface
     {
         $this->disconnect($name = $name ?: $this->getDefaultConnection());
 
-        if (! isset($this->connections[$name])) {
+        if (!isset($this->connections[$name])) {
             return $this->connection($name);
         }
 
@@ -331,12 +353,13 @@ class DatabaseManager implements ConnectionResolverInterface
         [$database, $type] = $this->parseConnectionName($name);
 
         $fresh = $this->configure(
-            $this->makeConnection($database), $type
+            $this->makeConnection($database),
+            $type
         );
 
         return $this->connections[$name]
-                    ->setPdo($fresh->getRawPdo())
-                    ->setReadPdo($fresh->getRawReadPdo());
+            ->setPdo($fresh->getRawPdo())
+            ->setReadPdo($fresh->getRawReadPdo());
     }
 
     /**
@@ -346,7 +369,7 @@ class DatabaseManager implements ConnectionResolverInterface
      */
     public function getDefaultConnection()
     {
-        return $this->app['config']['database.default'];
+        return $this->config->get("database.default");
     }
 
     /**
@@ -357,7 +380,7 @@ class DatabaseManager implements ConnectionResolverInterface
      */
     public function setDefaultConnection($name)
     {
-        $this->app['config']['database.default'] = $name;
+        $this->config->set("database.default", $name);
     }
 
     /**
@@ -430,7 +453,7 @@ class DatabaseManager implements ConnectionResolverInterface
     /**
      * Set the application instance used by the manager.
      *
-     * @param  \Illuminate\Contracts\Foundation\Application  $app
+     * @param  ContainerInterface  $app
      * @return $this
      */
     public function setApplication($app)
