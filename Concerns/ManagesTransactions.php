@@ -181,13 +181,13 @@ trait ManagesTransactions
     protected function getTransactionCounter()
     {
         $context = Coroutine::getContext();
-        $counter = $context["transaction"][$this->getName()] ?? 0;
+        $counter = $context["transaction" . $this->getName()] ?? 0;
         return $counter;
     }
 
     protected function setTransactionCounter($counter)
     {
-        Coroutine::getContext()["transaction"][$this->getName()] = $counter;
+        Coroutine::getContext()["transaction" . $this->getName()] = $counter;
     }
 
     protected function incrementTransactionCounter()

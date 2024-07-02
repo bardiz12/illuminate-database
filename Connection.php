@@ -804,9 +804,9 @@ class Connection implements ConnectionInterface
     protected function putBackPdo()
     {
         $context = Coroutine::getContext();
-        if (isset($context["pdo"][$this->getName()])) {
-            $this->poolManager->getPool($this->getName())->put($context["pdo"][$this->getName()]);
-            unset($context["pdo"][$this->getName()]);
+        if (isset($context["pdo:" . $this->getName()])) {
+            $this->poolManager->getPool($this->getName())->put($context["pdo:" . $this->getName()]);
+            unset($context["pdo:" . $this->getName()]);
         }
     }
 
@@ -1254,11 +1254,11 @@ class Connection implements ConnectionInterface
     public function getPdo()
     {
         $context = Coroutine::getContext();
-        if (!isset($context["pdo"][$this->getName()])) {
-            $context["pdo"][$this->getName()] = $this->poolManager->getPool($this->getName())->get();
+        if (!isset($context["pdo:" . $this->getName()])) {
+            $context["pdo:" . $this->getName()] = $this->poolManager->getPool($this->getName())->get();
         }
 
-        return $context["pdo"][$this->getName()];
+        return $context["pdo:" . $this->getName()];
     }
 
     /**

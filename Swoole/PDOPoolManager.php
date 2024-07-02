@@ -28,7 +28,6 @@ class PDOPoolManager
                 $pdoConfig,
                 $config["max_open_connections"] ?? PDOPool::DEFAULT_SIZE
             );
-            // $pool->fill();
             $this->pools[$name] = $pool;
         }
     }
@@ -43,12 +42,12 @@ class PDOPoolManager
         $config = $this->c->get(Repository::class);
         foreach ($this->pools as $poolName => $pool) {
             /** @var PDOPool $pool */
-            $config = $config->get("database.connections.$poolName");
+            $dbConfig = $config->get("database.connections.$poolName");
 
-            $max_open_connections = $config["max_open_connections"] ?? 100;
-            $max_idle_connections = $config["max_idle_connections"] ?? 64;
-            $min_idle_connections = $config["min_idle_connections"] ?? 2;
-            $max_connection_lifetime = $config["max_connection_lifetime"] ?? 72;
+            $max_open_connections = $dbConfig["max_open_connections"] ?? 100;
+            $max_idle_connections = $dbConfig["max_idle_connections"] ?? 64;
+            $min_idle_connections = $dbConfig["min_idle_connections"] ?? 2;
+            $max_connection_lifetime = $dbConfig["max_connection_lifetime"] ?? 72;
             if (!is_int($max_idle_connections)) {
                 continue;
             }

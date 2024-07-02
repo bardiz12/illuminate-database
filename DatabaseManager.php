@@ -13,6 +13,7 @@ use Illuminate\Contracts\Config\Repository;
 use Illuminate\Support\ConfigurationUrlParser;
 use Illuminate\Database\Connectors\ConnectionFactory;
 use Illuminate\Database\Events\ConnectionEstablished;
+use Swoole\Coroutine;
 
 /**
  * @mixin \Illuminate\Database\Connection
@@ -86,10 +87,12 @@ class DatabaseManager implements ConnectionResolverInterface
 
         foreach ($config->get("database.connections") as $name => $config) {
             [$database, $type] = $this->parseConnectionName($name);
+            
             $this->connections[$name] = $this->configure(
                 $this->makeConnection($database),
                 $type
             );
+
         }
     }
 
@@ -116,7 +119,7 @@ class DatabaseManager implements ConnectionResolverInterface
 
             $this->dispatchConnectionEstablishedEvent($this->connections[$name]);
         }
-
+        Coroutine::getContext()["connection"] = $name;
         return $this->connections[$name];
     }
 
