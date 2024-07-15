@@ -27,8 +27,11 @@ class PDOPool extends ConnectionPool
     public function get(float $timeout = -1)
     {
         $pdo = parent::get($timeout);
-        /* @var \Swoole\Database\PDOProxy $pdo */
-        $pdo->reset();
+        if ($pdo != false) {
+            /* @var \Swoole\Database\PDOProxy $pdo */
+            $pdo->reset();
+        }
+
         return $pdo;
     }
 
@@ -38,6 +41,16 @@ class PDOPool extends ConnectionPool
         if ($touch) {
             $connection->touch();
         }
+    }
+
+    public function getConnectionCount(): int
+    {
+        return $this->num;
+    }
+
+    public function decreaseConnectionCount()
+    {
+        $this->num--;
     }
 
     public function getChannel(): ?Channel

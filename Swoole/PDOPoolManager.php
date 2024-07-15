@@ -6,6 +6,7 @@ namespace Illuminate\Database\Swoole;
 use Swoole\Database\PDOConfig;
 use Psr\Container\ContainerInterface;
 use Illuminate\Contracts\Config\Repository;
+use Swoole\Database\PDOProxy;
 
 class PDOPoolManager
 {
@@ -37,6 +38,28 @@ class PDOPoolManager
         return $this->pools[$poolName];
     }
 
+    protected function removeConnection(int $count, PDOPool $pool, \Closure|null $filter = null): int
+    {
+        $deleted = 0;
+        for ($i = 0; $i < $count; $i++) {
+            $pdo = $pool->get(0.001);
+            if ($pdo === false) {
+                continue;
+            }
+            $isDelete = $filter === null ? true : $filter($pdo);
+
+            if (!$isDelete) {
+                $pool->put($pdo, false);
+                continue;
+            }
+
+            unset($pdo);
+            $pool->decreaseConnectionCount();
+        }
+
+        return $deleted;
+    }
+
     public function removeIdleConnections()
     {
         $config = $this->c->get(Repository::class);
@@ -44,46 +67,32 @@ class PDOPoolManager
             /** @var PDOPool $pool */
             $dbConfig = $config->get("database.connections.$poolName");
 
-            $max_open_connections = $dbConfig["max_open_connections"] ?? 100;
             $max_idle_connections = $dbConfig["max_idle_connections"] ?? 64;
-            $min_idle_connections = $dbConfig["min_idle_connections"] ?? 2;
             $max_connection_lifetime = $dbConfig["max_connection_lifetime"] ?? 72;
             if (!is_int($max_idle_connections)) {
                 continue;
             }
 
-            $first = true;
-            $length = $pool->length();
-            $stats = $pool->getChannel()->stats();
-            $loop = 0;
-            if ($length > $max_idle_connections) {
-                $loop = $length - $max_idle_connections;
-            } else {
-                $loop = $length;
+            $currentCount = $pool->getConnectionCount();
+
+            if ($max_idle_connections < $currentCount) {
+                $idleToRemove = $currentCount - $max_idle_connections;
+                $this->removeConnection(
+                    count: $idleToRemove,
+                    pool: $pool,
+                    filter: fn (PDOTimed|PDOProxy $pdo) => $pdo->getLifeTime() + 10 < microtime(true)
+                );
             }
 
-            // dump($stats);
-            if ($loop >= 0) {
-                $i = 0;
-                while ($i < $loop && $loop !== 0) {
-                    /** @var PDOTimed $pdo */
-                    if ($first) {
-                        $pdo = $pool->get();
-                    }
+            $toCheck = $pool->length();
 
-                    if (($pdo->getLifeTime() + $max_connection_lifetime) < microtime(true)) {
-                        unset($pdo);
-                        $pdo = $pool->get();
-                    } else {
-                        $pool->put($pdo, false);
-                    }
-                    $i++;
-                }
+            if ($toCheck > 0) {
+                $this->removeConnection(
+                    count: $toCheck,
+                    pool: $pool,
+                    filter: fn (PDOTimed|PDOProxy $pdo) => $pdo->getLifeTime() + $max_connection_lifetime < microtime(true)
+                );
             }
-
-
-
-            // $pdo->
         }
     }
 }
