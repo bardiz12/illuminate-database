@@ -17,6 +17,7 @@ class PDOPoolManager
 
         foreach ($config->get("database.connections") as $name => $config) {
             $pdoConfig = (new PDOConfig())
+                ->withDriver($config["driver"])
                 ->withHost($config["host"])
                 ->withPort($config["port"])
                 ->withDbName($config["database"])

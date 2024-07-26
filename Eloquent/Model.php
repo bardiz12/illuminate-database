@@ -1844,7 +1844,6 @@ abstract class Model implements Arrayable, ArrayAccess, CanBeEscapedWhenCastToSt
     public static function setConnectionResolver(Resolver $resolver)
     {
         static::$resolver = $resolver;
-        // dump($resolver);
     }
 
     /**

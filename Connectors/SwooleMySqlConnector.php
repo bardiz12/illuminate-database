@@ -4,30 +4,17 @@ namespace Illuminate\Database\Connectors;
 
 //https://github.com/swooletw/laravel-swoole/blob/master/src/Coroutine/Connectors/MySqlConnector.php
 
+use Throwable;
 use Illuminate\Support\Str;
 use Illuminate\Database\Swoole\PDO as SwoolePDO;
-use Throwable;
+use Illuminate\Database\Connectors\CreateSwoolePDOConnection;
 
 /**
  * Class MySqlConnector (5.6)
  */
 class SwooleMySqlConnector extends MySqlConnector
 {
-    /**
-     * Create a new PDO connection instance.
-     *
-     * @param string $dsn
-     * @param string $username
-     * @param string $password
-     * @param array $options
-     *
-     * @return \PDO
-     * @throws \Illuminate\Database\Swoole\ConnectionException
-     */
-    protected function createPdoConnection($dsn, $username, $password, $options)
-    {
-        return new SwoolePDO($dsn, $username, $password, $options);
-    }
+    use CreateSwoolePDOConnection;
 
     /**
      * Handle an exception that occurred during connect execution.

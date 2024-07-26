@@ -15,7 +15,7 @@ class PDOPool extends ConnectionPool
         parent::__construct(function () {
             $driver = $this->config->getDriver();
             if ($driver === 'sqlite') {
-                return new \PDO($this->createDSN('sqlite'));
+                return new PDOTimed($this->createDSN('sqlite'));
             }
 
             $pdo = new PDOTimed($this->createDSN($driver), $this->config->getUsername(), $this->config->getPassword(), $this->config->getOptions());

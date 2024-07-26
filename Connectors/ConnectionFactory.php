@@ -2,17 +2,19 @@
 
 namespace Illuminate\Database\Connectors;
 
-use Illuminate\Database\Connection;
-use Illuminate\Database\MariaDbConnection;
-use Illuminate\Database\MySqlConnection;
-use Illuminate\Database\PostgresConnection;
-use Illuminate\Database\SQLiteConnection;
-use Illuminate\Database\SqlServerConnection;
-use Illuminate\Database\Swoole\PDOPoolManager;
+use PDOException;
 use Illuminate\Support\Arr;
 use InvalidArgumentException;
-use PDOException;
+use Illuminate\Database\Connection;
 use Psr\Container\ContainerInterface;
+use Illuminate\Database\MySqlConnection;
+use Illuminate\Database\SQLiteConnection;
+use Illuminate\Database\MariaDbConnection;
+use Illuminate\Database\PostgresConnection;
+use Illuminate\Database\SqlServerConnection;
+use Illuminate\Database\Swoole\PDOPoolManager;
+use Illuminate\Database\Connectors\SwooleMariaDbConnector;
+use Illuminate\Database\Connectors\SwoolePostgresConnector;
 
 class ConnectionFactory
 {
@@ -245,10 +247,10 @@ class ConnectionFactory
         
         $connector = match ($config['driver']) {
             'mysql' => new SwooleMySqlConnector,
-            'mariadb' => new MariaDbConnector,
-            'pgsql' => new PostgresConnector,
-            'sqlite' => new SQLiteConnector,
-            'sqlsrv' => new SqlServerConnector,
+            'mariadb' => new SwooleMariaDbConnector,
+            'pgsql' => new SwoolePostgresConnector,
+            'sqlite' => new SwooleSQLiteConnector,
+            'sqlsrv' => new SwooleSqlServerConnector,
             default => throw new InvalidArgumentException("Unsupported driver [{$config['driver']}]."),
         };
 
@@ -269,12 +271,6 @@ class ConnectionFactory
      */
     protected function createConnection($driver, $connection, $database, $prefix = '', array $config = [])
     {
-        // if ($resolver = Connection::getResolver($driver)) {
-        //     return $resolver($connection, $database, $prefix, $config);
-        // }
-        
-        // $pdo
-
         $pdoPoolManager = $this->container->get(PDOPoolManager::class);
 
         return match ($driver) {
