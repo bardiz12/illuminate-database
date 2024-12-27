@@ -2,30 +2,30 @@
 
 namespace Illuminate\Database;
 
-use PDO;
-use Closure;
-use Exception;
-use RuntimeException;
-use Swoole\Coroutine;
-use DateTimeInterface;
 use Carbon\CarbonInterval;
-use Illuminate\Support\Arr;
-use Swoole\Database\PDOStatementProxy;
-use Illuminate\Support\Traits\Macroable;
-use Illuminate\Database\Query\Expression;
-use Illuminate\Support\InteractsWithTime;
+use Closure;
+use DateTimeInterface;
+use Exception;
 use Illuminate\Contracts\Events\Dispatcher;
 use Illuminate\Database\Events\QueryExecuted;
-use Illuminate\Database\Swoole\PDOPoolManager;
 use Illuminate\Database\Events\StatementPrepared;
-use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Database\Events\TransactionBeginning;
 use Illuminate\Database\Events\TransactionCommitted;
 use Illuminate\Database\Events\TransactionCommitting;
 use Illuminate\Database\Events\TransactionRolledBack;
 use Illuminate\Database\Query\Builder as QueryBuilder;
-use Illuminate\Database\Schema\Builder as SchemaBuilder;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Query\Grammars\Grammar as QueryGrammar;
+use Illuminate\Database\Query\Processors\Processor;
+use Illuminate\Database\Schema\Builder as SchemaBuilder;
+use Illuminate\Database\Swoole\PDOPoolManager;
+use Illuminate\Support\Arr;
+use Illuminate\Support\InteractsWithTime;
+use Illuminate\Support\Traits\Macroable;
+use PDO;
+use RuntimeException;
+use Swoole\Coroutine;
+use Swoole\Database\PDOStatementProxy;
 
 class Connection implements ConnectionInterface
 {
@@ -1005,6 +1005,7 @@ class Connection implements ConnectionInterface
             return $this->runQueryCallback($query, $bindings, $callback);
         }
 
+        $this->putBackPdo(); //we might want to check if caused by lost connection, dont return to pool;
         throw $e;
     }
 
@@ -1257,7 +1258,6 @@ class Connection implements ConnectionInterface
         if (!isset($context["pdo:" . $this->getName()])) {
             $context["pdo:" . $this->getName()] = $this->poolManager->getPool($this->getName())->get();
         }
-
         return $context["pdo:" . $this->getName()];
     }
 
@@ -1473,7 +1473,7 @@ class Connection implements ConnectionInterface
      * @param  \Illuminate\Contracts\Events\Dispatcher  $events
      * @return $this
      */
-    public function setEventDispatcher(Dispatcher $events)
+    public function setEventDispatcher(mixed $events)
     {
         $this->events = $events;
 

@@ -3,9 +3,10 @@
 namespace Illuminate\Database\Swoole;
 
 // use Swoole\Database\PDOPool;
-use Swoole\Database\PDOConfig;
-use Psr\Container\ContainerInterface;
 use Illuminate\Contracts\Config\Repository;
+use Psr\Container\ContainerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
+use Swoole\Database\PDOConfig;
 use Swoole\Database\PDOProxy;
 
 class PDOPoolManager
@@ -39,7 +40,7 @@ class PDOPoolManager
         return $this->pools[$poolName];
     }
 
-    protected function removeConnection(int $count, PDOPool $pool, \Closure|null $filter = null): int
+    public function removeConnection(int $count, PDOPool $pool, \Closure|null $filter = null): int
     {
         $deleted = 0;
         for ($i = 0; $i < $count; $i++) {
@@ -75,7 +76,7 @@ class PDOPoolManager
             }
 
             $currentCount = $pool->getConnectionCount();
-
+            
             if ($max_idle_connections < $currentCount) {
                 $idleToRemove = $currentCount - $max_idle_connections;
                 $this->removeConnection(

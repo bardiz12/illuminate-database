@@ -22,59 +22,66 @@ trait ManagesTransactions
     public function transaction(Closure $callback, $attempts = 1)
     {
         for ($currentAttempt = 1; $currentAttempt <= $attempts; $currentAttempt++) {
-            $this->beginTransaction();
-
-            // We'll simply execute the given callback within a try / catch block and if we
-            // catch any exception we can rollback this transaction so that none of this
-            // gets actually persisted to a database or stored in a permanent fashion.
             try {
-                $callbackResult = $callback($this);
-            }
+                $this->beginTransaction();
 
-            // If we catch an exception we'll rollback this transaction and try again if we
-            // are not out of attempts. If we are out of attempts we will just throw the
-            // exception back out, and let the developer handle an uncaught exception.
-            catch (Throwable $e) {
-                $this->handleTransactionException(
-                    $e,
-                    $currentAttempt,
-                    $attempts
-                );
-
-                continue;
-            }
-
-            $levelBeingCommitted = $this->getTransactionCounter();
-
-            try {
-                if ($this->getTransactionCounter() == 1) {
-                    $this->fireConnectionEvent('committing');
-                    $this->getPdo()->commit();
+                // We'll simply execute the given callback within a try / catch block and if we
+                // catch any exception we can rollback this transaction so that none of this
+                // gets actually persisted to a database or stored in a permanent fashion.
+                try {
+                    $callbackResult = $callback($this);
                 }
 
-                $setTo = max(0, $this->getTransactionCounter() - 1);
-                $this->setTransactionCounter(
-                    $setTo
+                // If we catch an exception we'll rollback this transaction and try again if we
+                // are not out of attempts. If we are out of attempts we will just throw the
+                // exception back out, and let the developer handle an uncaught exception.
+                catch (Throwable $e) {
+                    $this->handleTransactionException(
+                        $e,
+                        $currentAttempt,
+                        $attempts
+                    );
+
+                    continue;
+                }
+
+                $levelBeingCommitted = $this->getTransactionCounter();
+
+                try {
+                    if ($this->getTransactionCounter() == 1) {
+                        $this->fireConnectionEvent('committing');
+                        $this->getPdo()->commit();
+                    }
+
+                    $setTo = max(0, $this->getTransactionCounter() - 1);
+                    $this->setTransactionCounter(
+                        $setTo
+                    );
+                } catch (Throwable $e) {
+                    $this->handleCommitTransactionException(
+                        $e,
+                        $currentAttempt,
+                        $attempts
+                    );
+
+                    continue;
+                }
+
+                $lastCounter = $this->getTransactionCounter();
+
+                $this->transactionsManager?->commit(
+                    $this->getName(),
+                    $levelBeingCommitted,
+                    $lastCounter
                 );
             } catch (Throwable $e) {
-                $this->handleCommitTransactionException(
-                    $e,
-                    $currentAttempt,
-                    $attempts
-                );
-
-                continue;
+                if ( $this->getTransactionCounter() <= 0) {
+                    $this->putBackPdo();
+                }
+                throw $e;
             }
 
-            $lastCounter = $this->getTransactionCounter();
-
-            $this->transactionsManager?->commit(
-                $this->getName(),
-                $levelBeingCommitted,
-                $lastCounter
-            );
-
-            if ($lastCounter <= 0) {
+            if ( $this->getTransactionCounter() <= 0) {
                 $this->putBackPdo();
             }
 

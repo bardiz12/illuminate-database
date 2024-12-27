@@ -4,8 +4,8 @@ namespace Illuminate\Database\Swoole;
 
 use Swoole\ConnectionPool;
 use Swoole\Coroutine\Channel;
-use Swoole\Database\PDOProxy;
 use Swoole\Database\PDOConfig;
+use Swoole\Database\PDOProxy;
 
 class PDOPool extends ConnectionPool
 {

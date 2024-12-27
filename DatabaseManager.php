@@ -2,17 +2,17 @@
 
 namespace Illuminate\Database;
 
-use PDO;
-use RuntimeException;
-use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
-use InvalidArgumentException;
-use Psr\Container\ContainerInterface;
-use Illuminate\Support\Traits\Macroable;
 use Illuminate\Contracts\Config\Repository;
-use Illuminate\Support\ConfigurationUrlParser;
 use Illuminate\Database\Connectors\ConnectionFactory;
 use Illuminate\Database\Events\ConnectionEstablished;
+use Illuminate\Support\Arr;
+use Illuminate\Support\ConfigurationUrlParser;
+use Illuminate\Support\Str;
+use Illuminate\Support\Traits\Macroable;
+use InvalidArgumentException;
+use PDO;
+use Psr\Container\ContainerInterface;
+use RuntimeException;
 use Swoole\Coroutine;
 
 /**
@@ -92,6 +92,7 @@ class DatabaseManager implements ConnectionResolverInterface
                 $this->makeConnection($database),
                 $type
             );
+            $this->dispatchConnectionEstablishedEvent($this->connections[$name]);
 
         }
     }

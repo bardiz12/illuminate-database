@@ -2,14 +2,14 @@
 
 namespace Illuminate\Database\Capsule;
 
-use PDO;
 use Illuminate\Container\Container;
 use Illuminate\Contracts\Config\Repository;
-use Psr\Container\ContainerInterface;
-use Illuminate\Database\DatabaseManager;
 use Illuminate\Contracts\Events\Dispatcher;
-use Illuminate\Database\Eloquent\Model as Eloquent;
 use Illuminate\Database\Connectors\ConnectionFactory;
+use Illuminate\Database\DatabaseManager;
+use Illuminate\Database\Eloquent\Model as Eloquent;
+use PDO;
+use Psr\Container\ContainerInterface;
 
 class Manager
 {
