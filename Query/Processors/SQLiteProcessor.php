@@ -20,8 +20,10 @@ class SQLiteProcessor extends Processor
 
             $type = strtolower($result->type);
 
+            $safeName = preg_quote($result->name, '/');
+
             $collation = preg_match(
-                '/\b'.preg_quote($result->name).'\b[^,(]+(?:\([^()]+\)[^,]*)?(?:(?:default|check|as)\s*(?:\(.*?\))?[^,]*)*collate\s+["\'`]?(\w+)/i',
+                '/\b'.$safeName.'\b[^,(]+(?:\([^()]+\)[^,]*)?(?:(?:default|check|as)\s*(?:\(.*?\))?[^,]*)*collate\s+["\'`]?(\w+)/i',
                 $sql,
                 $matches
             ) === 1 ? strtolower($matches[1]) : null;
@@ -29,7 +31,7 @@ class SQLiteProcessor extends Processor
             $isGenerated = in_array($result->extra, [2, 3]);
 
             $expression = $isGenerated && preg_match(
-                '/\b'.preg_quote($result->name).'\b[^,]+\s+as\s+\(((?:[^()]+|\((?:[^()]+|\([^()]*\))*\))*)\)/i',
+                '/\b'.$safeName.'\b[^,]+\s+as\s+\(((?:[^()]+|\((?:[^()]+|\([^()]*\))*\))*)\)/i',
                 $sql,
                 $matches
             ) === 1 ? $matches[1] : null;
@@ -74,7 +76,7 @@ class SQLiteProcessor extends Processor
 
             return [
                 'name' => strtolower($result->name),
-                'columns' => explode(',', $result->columns),
+                'columns' => $result->columns ? explode(',', $result->columns) : [],
                 'type' => null,
                 'unique' => (bool) $result->unique,
                 'primary' => $isPrimary,
@@ -102,7 +104,7 @@ class SQLiteProcessor extends Processor
             return [
                 'name' => null,
                 'columns' => explode(',', $result->columns),
-                'foreign_schema' => null,
+                'foreign_schema' => $result->foreign_schema,
                 'foreign_table' => $result->foreign_table,
                 'foreign_columns' => explode(',', $result->foreign_columns),
                 'on_update' => strtolower($result->on_update),

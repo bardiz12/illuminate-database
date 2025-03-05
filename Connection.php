@@ -115,7 +115,7 @@ class Connection implements ConnectionInterface
     /**
      * The event dispatcher instance.
      *
-     * @var \Illuminate\Contracts\Events\Dispatcher
+     * @var \Illuminate\Contracts\Events\Dispatcher|null
      */
     protected $events;
 
@@ -136,7 +136,7 @@ class Connection implements ConnectionInterface
     /**
      * The transaction manager instance.
      *
-     * @var \Illuminate\Database\DatabaseTransactionsManager
+     * @var \Illuminate\Database\DatabaseTransactionsManager|null
      */
     protected $transactionsManager;
 
@@ -257,9 +257,7 @@ class Connection implements ConnectionInterface
      */
     protected function getDefaultQueryGrammar()
     {
-        ($grammar = new QueryGrammar)->setConnection($this);
-
-        return $grammar;
+        return new QueryGrammar($this);
     }
 
     /**
@@ -465,7 +463,7 @@ class Connection implements ConnectionInterface
      * @param  string  $query
      * @param  array  $bindings
      * @param  bool  $useReadPdo
-     * @return \Generator
+     * @return \Generator<int, \stdClass>
      */
     public function cursor($query, $bindings = [], $useReadPdo = true)
     {
@@ -637,6 +635,18 @@ class Connection implements ConnectionInterface
     }
 
     /**
+     * Get the number of open connections for the database.
+     *
+     * @return int|null
+     */
+    public function threadCount()
+    {
+        $query = $this->getQueryGrammar()->compileThreadCount();
+
+        return $query ? $this->scalar($query) : null;
+    }
+
+    /**
      * Execute the given callback in "dry run" mode.
      *
      * @param  \Closure  $callback
@@ -672,11 +682,11 @@ class Connection implements ConnectionInterface
 
         $this->pretending = false;
 
-        $result = $callback();
-
-        $this->pretending = true;
-
-        return $result;
+        try {
+            return $callback();
+        } finally {
+            $this->pretending = true;
+        }
     }
 
     /**
@@ -888,7 +898,7 @@ class Connection implements ConnectionInterface
     /**
      * Get the elapsed time since a given starting point.
      *
-     * @param  int  $start
+     * @param  float  $start
      * @return float
      */
     protected function getElapsedTime($start)
@@ -1389,6 +1399,16 @@ class Connection implements ConnectionInterface
     }
 
     /**
+     * Get a human-readable name for the given connection driver.
+     *
+     * @return string
+     */
+    public function getDriverTitle()
+    {
+        return $this->getDriverName();
+    }
+
+    /**
      * Get the query grammar used by the connection.
      *
      * @return \Illuminate\Database\Query\Grammars\Grammar
@@ -1645,22 +1665,26 @@ class Connection implements ConnectionInterface
     {
         $this->tablePrefix = $prefix;
 
-        $this->getQueryGrammar()->setTablePrefix($prefix);
-
         return $this;
     }
 
     /**
-     * Set the table prefix and return the grammar.
+     * Execute the given callback without table prefix.
      *
-     * @param  \Illuminate\Database\Grammar  $grammar
-     * @return \Illuminate\Database\Grammar
+     * @param  \Closure  $callback
+     * @return mixed
      */
-    public function withTablePrefix(Grammar $grammar)
+    public function withoutTablePrefix(Closure $callback): mixed
     {
-        $grammar->setTablePrefix($this->tablePrefix);
+        $tablePrefix = $this->getTablePrefix();
 
-        return $grammar;
+        $this->setTablePrefix('');
+
+        try {
+            return $callback($this);
+        } finally {
+            $this->setTablePrefix($tablePrefix);
+        }
     }
 
     /**
@@ -1689,7 +1713,7 @@ class Connection implements ConnectionInterface
      * Get the connection resolver for the given driver.
      *
      * @param  string  $driver
-     * @return mixed
+     * @return \Closure|null
      */
     public static function getResolver($driver)
     {
